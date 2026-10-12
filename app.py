@@ -110,7 +110,7 @@ with st.expander("📱💻 Click Here: How to Install Beauty Creator Suite as an
     ---
     ### 📱 **On Smartphones & Tablets**
     * **iPhone / iPad (Safari):** Tap the **Share** button (box with arrow) > Tap **Add to Home Screen**.
-    * **Android (Chrome):** Tap the **3-Dots Menu** > Tap **Add to Home Screen** or **Install app**.
+    * **Android (Chrome):** Tap the **3-Dots on your browser (eg, Chrome), not the dashboard 3-Dots** > Tap **Install and create shortcut**.
     
     *Result: Opens instantly like a native mobile/desktop app without browser tabs!*
     """)
