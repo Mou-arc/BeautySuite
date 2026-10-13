@@ -331,7 +331,7 @@ with tab2:
           st.markdown(res_text)
         except Exception as e:
           st.error(
-              "⚠️ Google's AI servers are currently experiencing high demand"
+              "⚠️ Google's AI servers are busy. Please try again after some time."
               " (503 Unavailable)."
           )
           if st.button("🔄 Click to Retry Pitch Generation"):
