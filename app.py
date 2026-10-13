@@ -332,7 +332,7 @@ with tab2:
         except Exception as e:
           st.error(
               "⚠️ Google's AI servers are busy. Please try again after some time."
-              " (503 Unavailable)."
+              
           )
           if st.button("🔄 Click to Retry Pitch Generation"):
             st.rerun()
