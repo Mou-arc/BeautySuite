@@ -122,7 +122,7 @@ def generate_ai_response(client, prompt):
           model=model_name, contents=prompt,
           config={
               "temperature": 0.7,  # Faster, more direct output
-              "max_output_tokens": 1000,  # Limits token generation length for quick delivery
+              
           },
       )
       return response.text
