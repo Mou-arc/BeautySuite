@@ -119,7 +119,11 @@ def generate_ai_response(client, prompt):
   for model_name in models_to_try:
     try:
       response = client.models.generate_content(
-          model=model_name, contents=prompt
+          model=model_name, contents=prompt,
+          config={
+              "temperature": 0.7,  # Faster, more direct output
+              "max_output_tokens": 1000,  # Limits token generation length for quick delivery
+          },
       )
       return response.text
     except Exception as e:
