@@ -135,7 +135,7 @@ def generate_ai_response(client, prompt):
       raise e
 
   raise Exception(
-      "Google AI servers are currently experiencing high demand across all"
+      "Google AI servers are busy. Please try again after some time."
       " clusters."
   )
 
