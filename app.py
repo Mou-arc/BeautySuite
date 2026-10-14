@@ -1,6 +1,7 @@
+import os
 import time
-from google import genai
 import streamlit as st
+from groq import Groq
 
 # Configure page layout
 st.set_page_config(
@@ -103,41 +104,37 @@ st.markdown(
 
 
 # -------------------------------------------------------------------
-# 🔄 HELPER FUNCTION WITH MULTI-MODEL FALLBACK & RETRY (FIXES 503 ERROR)
+# 🔄 GROQ HELPER FUNCTION WITH ACTIVE PRODUCTION MODELS
 # -------------------------------------------------------------------
 def generate_ai_response(client, prompt):
-  """Tries gemini-2.5-flash first.
+    """Uses Groq's active high-speed production models."""
+    models_to_try = [
+        "openai/gpt-oss-20b"
+    ]
 
-  If Google returns a 503, automatically falls back to gemini-1.5-flash and
-  gemini-2.0-flash.
-  """
-  models_to_try = [
-      "gemini-3.8-flash",
-      "gemini-3.6-flash"
-  ]
+    last_error = None
+    for model_name in models_to_try:
+        try:
+            chat_completion = client.chat.completions.create(
+                messages=[
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
+                model=model_name,
+                temperature=0.7,
+            )
+            if chat_completion and chat_completion.choices:
+                return chat_completion.choices[0].message.content
+        except Exception as e:
+            last_error = str(e)
+            if "429" in last_error or "rate_limit" in last_error.lower():
+                time.sleep(1)
+                continue
+            continue
 
-  for model_name in models_to_try:
-    try:
-      response = client.models.generate_content(
-          model=model_name, contents=prompt,
-          config={
-              "temperature": 0.7,  # Faster, more direct output
-              
-          },
-      )
-      return response.text
-    except Exception as e:
-      error_msg = str(e)
-      # If model is unavailable or overloaded (503), switch to next model silently
-      if "503" in error_msg or "UNAVAILABLE" in error_msg:
-        time.sleep(1)
-        continue
-      raise e
-
-  raise Exception(
-      "Google AI servers are busy. Please try again after some time."
-    
-  )
+    raise Exception(f"Groq API Connection Failed. Details: {last_error}")
 
 
 # -------------------------------------------------------------------
@@ -157,7 +154,7 @@ with st.expander(
     "📱💻 Click Here: How to Install Beauty Creator Suite as an App on Your"
     " Phone or Laptop"
 ):
-  st.markdown("""
+    st.markdown("""
     ---
     ### 💻 **On Laptops & Desktops (Windows / Mac)**
     * **Chrome & Edge:** Click the **Install Icon** `[+]` in your browser address bar at the top right and click **Install**.
@@ -171,13 +168,13 @@ with st.expander(
     *Result: Opens instantly like a native mobile/desktop app without browser tabs!*
     """)
 
-# Retrieve Gemini API Key from Streamlit Secrets or manual fallback
-api_key = st.secrets.get("GEMINI_API_KEY", "")
+# Retrieve Groq API Key from Streamlit Secrets or manual fallback
+api_key = st.secrets.get("GROQ_API_KEY", "")
 
 if not api_key:
-  with st.sidebar:
-    st.warning("⚠️ Secret API key missing. Enter temporary key below:")
-    api_key = st.text_input("Gemini API Key", type="password")
+    with st.sidebar:
+        st.warning("⚠️ Secret API key missing. Enter temporary Groq key below:")
+        api_key = st.text_input("Groq API Key", type="password")
 
 st.markdown("---")
 
@@ -189,56 +186,56 @@ tab1, tab2 = st.tabs(
 # TAB 1: PRODUCT LAUNCH & CAPTIONS
 # -------------------------------------------------------------------
 with tab1:
-  st.subheader("📦 Enter Product Launch Brief")
+    st.subheader("📦 Enter Product Launch Brief")
 
-  col1, col2 = st.columns(2)
-  with col1:
-    prod_name = st.text_input(
-        "Product Name & Brand",
-        placeholder="e.g. Plum Rice Water & Niacinamide Serum",
-    )
-    skin_target = st.text_input(
-        "Target Skin Type / Tone",
-        placeholder="e.g. Dull, textured skin / All skin types",
-    )
-    vibe = st.selectbox(
-        "Reel Style",
-        [
-            "Problem-Solution Reel",
-            "Unboxing & First Impressions",
-            "GRWM Routine",
-            "Deep Dive Review",
-        ],
+    col1, col2 = st.columns(2)
+    with col1:
+        prod_name = st.text_input(
+            "Product Name & Brand",
+            placeholder="e.g. Plum Rice Water & Niacinamide Serum",
+        )
+        skin_target = st.text_input(
+            "Target Skin Type / Tone",
+            placeholder="e.g. Dull, textured skin / All skin types",
+        )
+        vibe = st.selectbox(
+            "Reel Style",
+            [
+                "Problem-Solution Reel",
+                "Unboxing & First Impressions",
+                "GRWM Routine",
+                "Deep Dive Review",
+            ],
+        )
+
+    with col2:
+        uvp = st.text_input(
+            "Key USP / What makes it unique?",
+            placeholder="e.g. Brightens skin, fades dark spots, 100% vegan",
+        )
+        key_ingredients = st.text_input(
+            "Key Ingredients & Claims",
+            placeholder="e.g. 10% Niacinamide, Japanese Rice Water",
+        )
+
+    pr_brief = st.text_area(
+        "📄 Paste PR Launch Document / Brand Guidelines (Optional)",
+        placeholder=(
+            "Paste full product details, launch rules, mandatory disclosures, or"
+            " website text..."
+        ),
+        height=100,
     )
 
-  with col2:
-    uvp = st.text_input(
-        "Key USP / What makes it unique?",
-        placeholder="e.g. Brightens skin, fades dark spots, 100% vegan",
-    )
-    key_ingredients = st.text_input(
-        "Key Ingredients & Claims",
-        placeholder="e.g. 10% Niacinamide, Japanese Rice Water",
-    )
-
-  pr_brief = st.text_area(
-      "📄 Paste PR Launch Document / Brand Guidelines (Optional)",
-      placeholder=(
-          "Paste full product details, launch rules, mandatory disclosures, or"
-          " website text..."
-      ),
-      height=100,
-  )
-
-  st.markdown("<br>", unsafe_allow_html=True)
-  if st.button("🚀 Generate Viral Reel Script & SEO Captions"):
-    if not api_key:
-      st.error("Please provide a Gemini API Key to continue.")
-    elif not prod_name:
-      st.warning("Please enter at least the product name.")
-    else:
-      client = genai.Client(api_key=api_key)
-      prompt = f"""
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("🚀 Generate Viral Reel Script & SEO Captions"):
+        if not api_key:
+            st.error("Please provide a Groq API Key to continue.")
+        elif not prod_name:
+            st.warning("Please enter at least the product name.")
+        else:
+            client = Groq(api_key=api_key)
+            prompt = f"""
             You are a top social media strategist for luxury beauty influencers on Instagram.
             
             ### PRODUCT BRIEF:
@@ -269,73 +266,67 @@ with tab1:
                - Ready-to-copy standard disclaimer tag for sponsored/PR content in India.
             """
 
-      with st.spinner("✨ Crafting high-converting creator campaign..."):
-        try:
-          res_text = generate_ai_response(client, prompt)
-          st.success("🎉 Campaign Generated Successfully!")
-          st.markdown("---")
-          st.markdown(res_text)
-        except Exception as e:
-          st.error(
-              "⚠️ Google's AI servers are currently experiencing high demand"
-              " (503 Unavailable)."
-          )
-          if st.button("🔄 Click to Retry Generation"):
-            st.rerun()
+            with st.spinner("✨ Crafting high-converting creator campaign..."):
+                try:
+                    res_text = generate_ai_response(client, prompt)
+                    st.success("🎉 Campaign Generated Successfully!")
+                    st.markdown("---")
+                    st.markdown(res_text)
+                except Exception as e:
+                    st.error("⚠️ The Groq AI servers are busy, Please try again after some time")
+                    if st.button("🔄 Click to Retry Generation"):
+                        st.rerun()
 
 # -------------------------------------------------------------------
 # TAB 2: BRAND PR PITCH
 # -------------------------------------------------------------------
 with tab2:
-  st.subheader("✉️ Pitch Cosmetic Brands for PR Packages")
+    st.subheader("✉️ Pitch Cosmetic Brands for PR Packages")
 
-  col_a, col_b = st.columns(2)
-  with col_a:
-    creator_name = st.text_input(
-        "Your Creator Name / IG Handle", placeholder="e.g. @glowwithananya"
-    )
-    niche = st.text_input(
-        "Your Niche & Follower Count",
-        placeholder="e.g. Skincare for Acne-Prone Skin, 15k Followers",
-    )
-  with col_b:
-    target_brand = st.text_input(
-        "Target Brand Name", placeholder="e.g. Minimalist, Plum, Nykaa, Dot & Key"
-    )
-    collab_type = st.selectbox(
-        "Pitch Objective",
-        [
-            "PR Gifting Package",
-            "Paid Brand Partnership",
-            "Long-term Ambassadorship",
-        ],
-    )
+    col_a, col_b = st.columns(2)
+    with col_a:
+        creator_name = st.text_input(
+            "Your Creator Name / IG Handle", placeholder="e.g. @glowwithananya"
+        )
+        niche = st.text_input(
+            "Your Niche & Follower Count",
+            placeholder="e.g. Skincare for Acne-Prone Skin, 15k Followers",
+        )
+    with col_b:
+        target_brand = st.text_input(
+            "Target Brand Name", placeholder="e.g. Minimalist, Plum, Nykaa, Dot & Key"
+        )
+        collab_type = st.selectbox(
+            "Pitch Objective",
+            [
+                "PR Gifting Package",
+                "Paid Brand Partnership",
+                "Long-term Ambassadorship",
+            ],
+        )
 
-  st.markdown("<br>", unsafe_allow_html=True)
-  if st.button("✨ Draft High-Converting PR Pitch"):
-    if not api_key:
-      st.error("Please provide a Gemini API Key.")
-    elif not creator_name or not target_brand:
-      st.warning("Please fill in your creator name and target brand.")
-    else:
-      client = genai.Client(api_key=api_key)
-      prompt = f"""
+    st.markdown("<br>", unsafe_allow_html=True)
+    if st.button("✨ Draft High-Converting PR Pitch"):
+        if not api_key:
+            st.error("Please provide a Groq API Key.")
+        elif not creator_name or not target_brand:
+            st.warning("Please fill in your creator name and target brand.")
+        else:
+            client = Groq(api_key=api_key)
+            prompt = f"""
             Write a professional, persuasive PR outreach email and Instagram DM from beauty creator '{creator_name}' ({niche}) pitching to '{target_brand}' for a '{collab_type}'.
             Make it high-converting, professional, value-driven, and tailored to beauty brand PR managers.
             """
-      with st.spinner("✨ Drafting professional brand pitch..."):
-        try:
-          res_text = generate_ai_response(client, prompt)
-          st.success("🎉 PR Pitch Drafted Successfully!")
-          st.markdown("---")
-          st.markdown(res_text)
-        except Exception as e:
-          st.error(
-              "⚠️ Google's AI servers are busy. Please try again after some time."
-              
-          )
-          if st.button("🔄 Click to Retry Pitch Generation"):
-            st.rerun()
+            with st.spinner("✨ Drafting professional brand pitch..."):
+                try:
+                    res_text = generate_ai_response(client, prompt)
+                    st.success("🎉 PR Pitch Drafted Successfully!")
+                    st.markdown("---")
+                    st.markdown(res_text)
+                except Exception as e:
+                    st.error("⚠️ The Groq AI servers are busy, Please try again after some time")
+                    if st.button("🔄 Click to Retry Pitch Generation"):
+                        st.rerun()
 
 # Footer
 st.markdown("---")
