@@ -331,7 +331,7 @@ with tab2:
 # Footer
 st.markdown("---")
 st.markdown(
-    "<div style='text-align: center; color: #64748b; font-size: 0.85rem;'>MagaSum"
+    "<div style='text-align: center; color: #64748b; font-size: 0.85rem;'>"
     " Beauty Creator Suite &bull; Empowering Creators Worldwide</div>",
     unsafe_allow_html=True,
 )
